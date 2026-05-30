@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Nexus OS - Peer Challenge Edition</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: radial-gradient(circle at center, #0f1015 0%, #050608 100%);
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+        }
+
+        .gameboy {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.03) 100%);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 40px;
+            padding: 35px 25px 25px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6), inset 0 2px 3px rgba(255, 255, 255, 0.2);
+            width: 375px;
+            position: relative;
+        }
+
+        .brand-header {
+            text-align: center;
+            font-size: 13px;
+            font-weight: 900;
+            color: rgba(255, 255, 255, 0.6);
+            letter-spacing: 6px;
+            margin-bottom: 15px;
+        }
+
+        .screen-outer {
+            background: #0a0b10;
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: inset 0 4px 10px rgba(0,0,0,0.9);
+            position: relative;
+        }
+
+        .screen-inner {
+            background: #060709;
+            border-radius: 8px;
+            padding: 2px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .screen-inner::after {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.3) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            z-index: 10;
+            background-size: 100% 3px, 4px 100%;
+            pointer-events: none;
+        }
+
+        #gameCanvas {
+            display: block;
+            width: 100%;
+            height: auto;
+            aspect-ratio: 1;
+        }
+
+        .score-area {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 6px 0;
+            font-size: 11px;
+            font-weight: bold;
+            color: #05ffc9;
+            text-shadow: 0 0 5px rgba(5, 255, 201, 0.5);
+        }
+
+        .controls-row { display: flex; justify-content: space-between; align-items: center; padding: 25px 10px 5px; }
+        .dpad { display: grid; grid-template-columns: repeat(3, 52px); grid-template-rows: repeat(3, 52px); }
+        .dpad button { background: #1e1f29; border: 1px solid rgba(255,255,255,0.05); color: rgba(255,255,255,0.4); font-size: 20px; cursor: pointer; display: flex; justify-content: center; align-items: center; box-shadow: 0 4px 8px rgba(0,0,0,0.3); }
+        #up { grid-column: 2; grid-row: 1; border-radius: 8px 8px 0 0; }
+        #left { grid-column: 1; grid-row: 2; border-radius: 8px 0 0 8px; }
+        #right { grid-column: 3; grid-row: 2; border-radius: 0 8px 8px 0; }
+        #down { grid-column: 2; grid-row: 3; border-radius: 0 0 8px 8px; }
+        .dpad .center-block { grid-column: 2; grid-row: 2; background: #1e1f29; pointer-events: none; }
+        
+        .action-buttons { display: flex; gap: 18px; transform: rotate(-15deg); }
+        .action-buttons button { background: linear-gradient(145deg, #ff2a6d, #9a0036); border: none; border-radius: 50%; width: 54px; height: 54px; color: white; font-size: 16px; font-weight: bold; box-shadow: 0 5px 0 #54001c, 0 8px 15px rgba(0,0,0,0.4); cursor: pointer; }
+        
+        .system-dashboard { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; justify-content: center; padding: 20px 10px 5px; }
+        .system-dashboard button { background: #2a2b36; border: none; border-radius: 20px; height: 14px; color: rgba(255,255,255,0.4); font-size: 7px; font-weight: bold; box-shadow: 0 3px 0 #15161c; cursor: pointer; }
+        
+        .game-select-container { display: flex; gap: 10px; justify-content: center; padding-top: 15px; }
+        .game-select-container button { border: none; border-radius: 20px; height: 20px; font-size: 8px; font-weight: bold; cursor: pointer; }
+        #btnGame { background: linear-gradient(145deg, #2a2b36, #15161c); color: rgba(255,255,255,0.6); width: 100px; box-shadow: 0 3px 0 #0b0c10; }
+        #btnShare { background: linear-gradient(145deg, #00b347, #0b2b1a); color: #05ffc9; width: 110px; box-shadow: 0 3px 0 #051a0e; }
+        #btnShare:active { transform: translateY(2px); box-shadow: 0 1px 0 #051a0e; }
+    </style>
+</head>
+<body>
+<div class="gameboy">
+    <div class="brand-header">NEXUS ARCADE</div>
+    <div class="screen-outer">
+        <div class="screen-inner">
+            <canvas id="gameCanvas" width="400" height="400"></canvas>
+        </div>
+        <div class="score-area">
+            <span id="trackName">TRACK: TETRIS INF</span>
+            <span id="scoreDisplay">0000</span>
+        </div>
+    </div>
+
+    <div class="controls-row">
+        <div class="dpad">
+            <button id="up">▲</button>
+            <button id="left">◀</button>
+            <div class="center-block"></div>
+            <button id="right">▶</button>
+            <button id="down">▼</button>
+        </div>
+        <div class="action-buttons">
+            <button id="btnB">B</button>
+            <button id="btnA">A</button>
+        </div>
+    </div>
+
+    <div class="system-dashboard">
+        <button id="btnSelect">SELECT</button>
+        <button id="btnStart">START</button>
+        <button id="btnMusic">MUSIC</button>
+        <button id="btnColor">COLOR</button>
+    </div>
+
+    <div class="game-select-container">
+        <button id="btnGame">CHANGE GAME</button>
+        <button id="btnShare">SHARE SYSTEM</button>
+    </div>
+</div>
+
+<script>
+    // ---------- Infinite Audio Engine ----------
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    let audioCtx; let musicPlaying = false; let musicTimeout = null; let currentMusic = 0;
+    const musicNames = ["TETRIS INF", "HYRULE JAM", "CYBER MARCH", "NEO MARIO", "PAC-LOOP"];
+    const musicalScales = [[440, 493, 523, 587, 659, 698, 783, 880], [293, 329, 349, 392, 440, 466, 523, 587], [311, 349, 369, 415, 466, 493, 554, 622], [261, 293, 329, 349, 392, 440, 493, 523]];
+    let stepCounter = 0; let baseNoteIndex = 0;
+
+    function initAudio() { if (!audioCtx) audioCtx = new AudioCtx(); if (audioCtx.state === 'suspended') audioCtx.resume(); }
+    function playSound(type) {
+        if (!audioCtx) return; const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        if (type === 'eat' || type === 'hit') { osc.type = 'square'; osc.frequency.setValueAtTime(523, now); osc.frequency.setValueAtTime(880, now + 0.05); gain.gain.setValueAtTime(0.04, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15); osc.start(now); osc.stop(now + 0.15); }
+        else if (type === 'dead') { osc.type = 'sawtooth'; osc.frequency.setValueAtTime(300, now); osc.frequency.linearRampToValueAtTime(60, now + 0.4); gain.gain.setValueAtTime(0.08, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4); osc.start(now); osc.stop(now + 0.4); }
+        else if (type === 'shoot') { osc.type = 'square'; osc.frequency.setValueAtTime(450, now); gain.gain.setValueAtTime(0.02, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08); osc.start(now); osc.stop(now + 0.08); }
+        else if (type === 'move') { osc.type = 'triangle'; osc.frequency.setValueAtTime(200, now); gain.gain.setValueAtTime(0.02, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.03); osc.start(now); osc.stop(now + 0.03); }
+    }
+
+    function playMusicLoop() {
+        if (!musicPlaying || !audioCtx) return;
+        const now = audioCtx.currentTime; const currentScale = musicalScales[currentMusic]; stepCounter++;
+        let dice = Math.random();
+        if (dice < 0.4) { baseNoteIndex = (baseNoteIndex + 1) % currentScale.length; }
+        else if (dice < 0.7) { baseNoteIndex = (baseNoteIndex - 1 + currentScale.length) % currentScale.length; }
+        if (stepCounter % 8 === 0 && Math.random() < 0.5) baseNoteIndex = Math.floor(Math.random() * currentScale.length);
+        let targetFrequency = currentScale[baseNoteIndex]; let noteDuration = 160;
+        if (stepCounter % 4 === 0) noteDuration = 320; if (stepCounter % 14 === 0) targetFrequency = 0;
+        if (targetFrequency > 0) {
+            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+            osc.type = (stepCounter % 32 < 16) ? 'square' : 'triangle'; if (activeGameIdx === 1) osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(targetFrequency, now);
+            gain.gain.setValueAtTime(0.012, now); gain.gain.exponentialRampToValueAtTime(0.001, now + (noteDuration / 1000) * 0.9);
+            osc.connect(gain); gain.connect(audioCtx.destination); osc.start(now); osc.stop(now + noteDuration / 1000);
+        }
+        musicTimeout = setTimeout(playMusicLoop, noteDuration);
+    }
+    function startMusic() { stopMusic(); musicPlaying = true; stepCounter = 0; playMusicLoop(); }
+    function stopMusic() { musicPlaying = false; if (musicTimeout) clearTimeout(musicTimeout); }
+    function switchTrack() { initAudio(); currentMusic = (currentMusic + 1) % musicalScales.length; document.getElementById('trackName').textContent = `TRACK: ${musicNames[currentMusic]}`; if (gameRunning || isPaused) startMusic(); }
+
+    // ---------- Palettes HQ Dynamiques ----------
+    const palettes = [
+        { bg: '#060a07', grid: 'rgba(5, 255, 201, 0.03)', objectGlow: '#05ffc9', objectFill: '#00cc99', text: '#05ffc9' },
+        { bg: '#080912', grid: 'rgba(0, 191, 255, 0.03)', objectGlow: '#00f0ff', objectFill: '#0099ff', text: '#00f0ff' },
+        { bg: '#0a0604', grid: 'rgba(255, 158, 0, 0.03)', objectGlow: '#ff9e00', objectFill: '#cc6600', text: '#ff9e00' }
+    ];
+    let currentPalette = 0;
+    function switchPalette() { currentPalette = (currentPalette + 1) % palettes.length; if (!gameRunning && !isPaused) drawIntro(); else renderFullFrame(); }
+
+    // ---------- Engine Variables ----------
+    const canvas = document.getElementById('gameCanvas'); const ctx = canvas.getContext('2d');
+    const scoreDisplay = document.getElementById('scoreDisplay'); const startBtn = document.getElementById('btnStart');
+
+    const cellSide = 25; const tileCount = 16;
+    const gameList = ["SNAKE", "INVADERS", "TETRIS", "BRICKS", "DINO"];
+    let activeGameIdx = 0;
+
+    let gameRunning = false; let isPaused = false; let score = 0; let loopTimeout = null; let introInterval = null;
+    let speed = 180; let introFrame = 0;
+
+    let snake = []; let food = {x:0, y:0}; let dx = 1; let dy = 0; let nextDx = 1; let nextDy = 0;
+    let playerX = 7; let bullets = []; let invaders = []; let invaderDir = 1; let invaderStepCount = 0;
+    let paddleX = 6; let paddleWidth = 4; let ball = {x: 8, y: 12, dx: 0.35, dy: -0.35}; let bricks = [];
+    let tetrisGrid = []; let currentPiece = null; let currentPieceX = 0; let currentPieceY = 0;
+    const pieces = [[[1,1,1,1]], [[1,1,1],[0,1,0]], [[1,1,1],[1,0,0]], [[1,1],[1,1]], [[1,1,0],[0,1,1]]];
+
+    let dinoY = 0; let dinoVelocity = 0; let dinoIsDucking = false; let obstacles = []; let dinoTicks = 0;
+
+    const dinoSprite = [
+        [0,0,0,1,1,1,1,1,0], [0,0,0,1,1,0,1,1,1], [0,0,0,1,1,1,1,1,1], [1,0,0,1,1,1,1,0,0],
+        [1,1,1,1,1,1,1,1,0], [0,1,1,1,1,1,1,0,0], [0,0,1,1,1,1,0,0,0], [0,0,1,1,0,1,0,0,0], [0,0,1,0,0,1,0,0,0]
+    ];
+
+    // MOTEUR D'INJECTION/EXTRACTION DE SCORES PAR URL (PEER CHALLENGE ENGINE)
+    let globalHighScores = { SNAKE: 0, INVADERS: 0, TETRIS: 0, BRICKS: 0, DINO: 0 };
+
+    function loadScoresFromURL() {
+        const params = new URLSearchParams(window.location.search);
+        const data = params.get('share');
+        if (data) {
+            try {
+                const decoded = JSON.parse(atob(data));
+                gameList.forEach(g => { if(decoded[g] !== undefined) globalHighScores[g] = parseInt(decoded[g], 10); });
+            } catch(e) { console.error("Échec du décodage des scores partagés."); }
+        }
+        // Sync avec le cache local s'il n'y a pas de lien ou si le cache local est supérieur
+        gameList.forEach(g => {
+            let local = localStorage.getItem('nexus_v2_best_' + g);
+            if (local && parseInt(local, 10) > globalHighScores[g]) {
+                globalHighScores[g] = parseInt(local, 10);
+            }
+        });
+    }
+
+    function generateShareLink() {
+        const compressed = btoa(JSON.stringify(globalHighScores));
+        const finalURL = window.location.origin + window.location.pathname + '?share=' + compressed;
+        
+        navigator.clipboard.writeText(finalURL).then(() => {
+            alert("Lien de défi copié ! Envoie-le sur WhatsApp ou Messenger à tes potes !");
+        }).catch(() => {
+            alert("Lien : " + finalURL);
+        });
+    }
+
+    function switchGame() {
+        initAudio(); if (loopTimeout) clearTimeout(loopTimeout); if (introInterval) clearInterval(introInterval);
+        activeGameIdx = (activeGameIdx + 1) % gameList.length; playSound('move');
+        if (gameRunning || isPaused) { setupSelectedGame(); isPaused = false; gameRunning = true; startMusic(); runGameEngineStep(); } else { initIntroAnimation(); }
+    }
+
+    function initIntroAnimation() {
+        if (introInterval) clearInterval(introInterval); gameRunning = false; isPaused = false;
+        introFrame = 0; introSnake = [{x: 4, y: 12}, {x: 3, y: 12}, {x: 2, y: 12}]; introGrapes = [{x: 11, y: 12, picked: false}];
+        introInterval = setInterval(() => { introFrame++; drawIntro(); }, 130);
+    }
+
+    function drawHQBlock(x, y, colorGlow, colorFill, radius = 4) {
+        ctx.save(); ctx.shadowBlur = 12; ctx.shadowColor = colorGlow; ctx.fillStyle = colorFill;
+        ctx.beginPath(); ctx.roundRect(x * cellSide + 1, y * cellSide + 1, cellSide - 2, cellSide - 2, radius); ctx.fill();
+        ctx.restore();
+    }
+
+    function drawGameBackground(p, curGame) {
+        ctx.fillStyle = p.bg; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.save();
+        if (curGame === "SNAKE") {
+            ctx.strokeStyle = 'rgba(255,255,255,0.015)'; ctx.lineWidth = 1;
+            for(let i=0; i<400; i+=20) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 400); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(400, i); ctx.stroke(); }
+        }
+        else if (curGame === "INVADERS") {
+            ctx.fillStyle = 'rgba(255,255,255,0.08)'; ctx.fillRect(40, 60, 2, 2); ctx.fillRect(180, 40, 3, 3); ctx.fillRect(320, 150, 2, 2);
+            let grad = ctx.createRadialGradient(200, 200, 20, 200, 200, 180); grad.addColorStop(0, 'rgba(255, 0, 85, 0.02)'); grad.addColorStop(1, 'transparent');
+            ctx.fillStyle = grad; ctx.fillRect(0, 0, 400, 400);
+        }
+        else if (curGame === "TETRIS") {
+            ctx.strokeStyle = 'rgba(255,255,255,0.01)'; ctx.lineWidth = 1;
+            for (let y = 0; y < 400; y += cellSide) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(400, y); ctx.stroke(); }
+        }
+        else if (curGame === "BRICKS") {
+            ctx.strokeStyle = 'rgba(255,255,255,0.015)'; ctx.lineWidth = 1.5;
+            for (let x = 0; x <= 400; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 400); ctx.stroke(); }
+        }
+        else if (curGame === "DINO") {
+            ctx.fillStyle = 'rgba(255,255,255,0.025)'; ctx.beginPath(); ctx.moveTo(30, 325); ctx.lineTo(70, 290); ctx.lineTo(110, 325); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(250, 325); ctx.lineTo(300, 280); ctx.lineTo(350, 325); ctx.fill();
+            ctx.fillRect(80, 100, 40, 6); ctx.fillRect(260, 140, 50, 7);
+        }
+        ctx.restore();
+    }
+
+    function drawPixelDino(startX, startY, color, ducking, tickCount) {
+        ctx.save(); ctx.fillStyle = color; ctx.shadowBlur = 8; ctx.shadowColor = color;
+        let isAltPatte = (Math.floor(tickCount / 2) % 2 === 0); let pScale = 3.6; 
+        for (let r = 0; r < 9; r++) {
+            for (let c = 0; c < 9; c++) {
+                if (dinoSprite[r][c]) {
+                    let targetR = ducking ? Math.min(8, r + 2) : r; let targetC = ducking ? c + 1 : c;
+                    if (r >= 7 && isAltPatte && c === 2) continue; if (r >= 7 && !isAltPatte && c === 5) continue;
+                    ctx.fillRect((startX * cellSide) + (targetC * pScale), (startY * cellSide) + (targetR * pScale), pScale + 0.2, pScale + 0.2);
+                }
+            }
+        }
+        ctx.restore();
+    }
+
+    function drawIntro() {
+        const p = palettes[currentPalette]; const curGame = gameList[activeGameIdx];
+        drawGameBackground(p, curGame);
+        
+        if (curGame === "SNAKE") {
+            introGrapes.forEach(g => { if(!g.picked){ drawHQBlock(g.x, g.y, '#ff0055', '#bb003b', 6); } });
+            if(introFrame % 2 === 0) {
+                let head = {...introSnake[0]}; if(head.x < 11) head.x++; introSnake.unshift(head);
+                if(head.x === 11) introGrapes[0].picked = true;
+                if(head.x > 17) { introSnake = [{x:-1, y:12}]; introGrapes[0].picked = false; } else { introSnake.pop(); }
+            }
+            introSnake.forEach((s, i) => { drawHQBlock(s.x, s.y, p.objectGlow, p.objectFill); });
+        } 
+        else if (curGame === "INVADERS") {
+            let animX = 5 + Math.sin(introFrame*0.4) * 3; drawHQBlock(Math.floor(animX), 7, p.objectGlow, p.objectFill, 6);
+        } 
+        else if (curGame === "DINO") { drawPixelDino(6.5, 9.5, '#ffffff', false, introFrame); }
+        else { drawHQBlock(7, 7, p.objectGlow, p.objectFill, 8); }
+        
+        ctx.fillStyle = p.text; ctx.font = '900 20px "Courier New", monospace'; ctx.textAlign = 'center'; ctx.fillText(`SYSTEM: ${gameList[activeGameIdx]}`, canvas.width / 2, 70);
+
+        let best = globalHighScores[gameList[activeGameIdx]]; ctx.font = 'bold 12px "Courier New", monospace';
+        if (Math.floor(introFrame / 8) % 2 === 0) { ctx.fillStyle = '#ffffff'; ctx.fillText('• PRESS START •', canvas.width / 2, 330); } 
+        else { ctx.fillStyle = p.objectGlow; ctx.fillText(`BEST: PEER ${String(best).padStart(4, '0')}`, canvas.width / 2, 330); }
+    }
+
+    function setupSelectedGame() {
+        score = 0; scoreDisplay.textContent = '0000'; const curGame = gameList[activeGameIdx];
+        if (curGame === "SNAKE") { speed = 200; snake = [{ x: 5, y: 8 }, { x: 4, y: 8 }, { x: 3, y: 8 }]; dx = 1; dy = 0; nextDx = 1; nextDy = 0; generateSnakeFood(); } 
+        else if (curGame === "INVADERS") { speed = 80; playerX = 7; bullets = []; invaders = []; invaderDir = 1; invaderStepCount = 0; for (let r = 0; r < 3; r++) { for (let c = 0; c < 6; c++) { invaders.push({ x: c * 2 + 2, y: r + 2, alive: true }); } } } 
+        else if (curGame === "TETRIS") { speed = 400; tetrisGrid = Array(16).fill().map(() => Array(16).fill(0)); spawnTetrisPiece(); }
+        else if (curGame === "BRICKS") { speed = 60; paddleX = 6; paddleWidth = 4; ball = { x: 8, y: 12, dx: 0.35, dy: -0.35 }; bricks = []; for (let r = 0; r < 3; r++) { for (let c = 0; c < 5; c++) { bricks.push({ x: c * 3 + 1, y: r + 2, intact: true }); } } }
+        else if (curGame === "DINO") { speed = 40; dinoY = 0; dinoVelocity = 0; dinoIsDucking = false; obstacles = []; dinoTicks = 0; }
+    }
+
+    function spawnTetrisPiece() {
+        const randId = Math.floor(Math.random() * pieces.length); currentPiece = pieces[randId]; currentPieceX = Math.floor((16 - currentPiece[0].length) / 2); currentPieceY = 0;
+        if (checkTetrisCollision(currentPiece, currentPieceX, currentPieceY)) { triggerGameOver(); }
+    }
+
+    function checkTetrisCollision(piece, offset_x, offset_y) {
+        for (let r = 0; r < piece.length; r++) { for (let c = 0; c < piece[r].length; c++) { if (piece[r][c]) { let tx = offset_x + c; let ty = offset_y + r; if (tx < 0 || tx >= 16 || ty >= 16) return true; if (ty >= 0 && tetrisGrid[ty][tx]) return true; } } } return false;
+    }
+
+    function lockTetrisPiece() {
+        for (let r = 0; r < currentPiece.length; r++) { for (let c = 0; c < currentPiece[r].length; c++) { if (currentPiece[r][c] && currentPieceY + r >= 0) tetrisGrid[currentPieceY + r][currentPieceX + c] = 1; } }
+        playSound('hit');
+        for (let r = 16 - 1; r >= 0; r--) { if (tetrisGrid[r].every(v => v === 1)) { tetrisGrid.splice(r, 1); tetrisGrid.unshift(Array(16).fill(0)); score += 100; scoreDisplay.textContent = String(score).padStart(4, '0'); r++; } }
+        spawnTetrisPiece();
+    }
+
+    function runGameEngineStep() {
+        if (!gameRunning || isPaused) return; const curGame = gameList[activeGameIdx];
+
+        if (curGame === "SNAKE") {
+            dx = nextDx; dy = nextDy; const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+            if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount) { triggerGameOver(); return; }
+            for(let i=0; i<snake.length; i++) { if(head.x===snake[i].x && head.y===snake[i].y) { triggerGameOver(); return; } }
+            snake.unshift(head);
+            if (head.x === food.x && head.y === food.y) { score += 10; scoreDisplay.textContent = String(score).padStart(4, '0'); speed = Math.max(50, speed - 6); generateSnakeFood(); playSound('eat'); } else { snake.pop(); }
+        } 
+        else if (curGame === "INVADERS") {
+            bullets.forEach((b, i) => { b.y -= 0.5; if(b.y < 0) bullets.splice(i, 1); }); invaderStepCount++;
+            if (invaderStepCount % 6 === 0) {
+                let hitWall = false; invaders.forEach(inv => { if (inv.alive) { let nx = inv.x + invaderDir; if (nx < 0 || nx >= tileCount) hitWall = true; } });
+                if (hitWall) { invaderDir *= -1; invaders.forEach(inv => { if(inv.alive) inv.y++; }); } else { invaders.forEach(inv => { if(inv.alive) inv.x += invaderDir; }); }
+            }
+            bullets.forEach((b, bi) => { invaders.forEach(inv => { if (inv.alive && Math.abs(b.x - inv.x) < 1 && Math.abs(b.y - inv.y) < 0.8) { inv.alive = false; bullets.splice(bi, 1); score += 20; scoreDisplay.textContent = String(score).padStart(4, '0'); playSound('hit'); } }); });
+            invaders.forEach(inv => { if (inv.alive && inv.y >= 14) triggerGameOver(); }); if (invaders.filter(v => v.alive).length === 0) setupSelectedGame();
+        } 
+        else if (curGame === "TETRIS") { if (!checkTetrisCollision(currentPiece, currentPieceX, currentPieceY + 1)) { currentPieceY++; } else { lockTetrisPiece(); } }
+        else if (curGame === "BRICKS") {
+            ball.x += ball.dx; ball.y += ball.dy; if (ball.x <= 0 || ball.x >= tileCount) ball.dx *= -1; if (ball.y <= 0) ball.dy *= -1;
+            if (ball.y >= 14 && ball.x >= paddleX && ball.x <= paddleX + paddleWidth) { ball.dy = -Math.abs(ball.dy); ball.dx = (ball.x - (paddleX + paddleWidth/2)) * 0.25; playSound('move'); }
+            if (ball.y > 16) { triggerGameOver(); return; }
+            bricks.forEach(b => { if (b.intact && ball.x >= b.x && ball.x <= b.x + 2.5 && ball.y >= b.y && ball.y <= b.y + 1) { b.intact = false; ball.dy *= -1; score += 15; scoreDisplay.textContent = String(score).padStart(4, '0'); playSound('hit'); } });
+            if (bricks.filter(b => b.intact).length === 0) setupSelectedGame();
+        }
+        else if (curGame === "DINO") {
+            dinoTicks++; if (dinoTicks % 5 === 0) { score += 1; scoreDisplay.textContent = String(score).padStart(4, '0'); }
+            dinoY += dinoVelocity; if (dinoY > 0) { dinoVelocity -= 0.45; } else { dinoY = 0; dinoVelocity = 0; }
+            if (obstacles.length === 0 || obstacles[obstacles.length - 1].x < 9) { if (Math.random() < 0.04) { let type = Math.random() < 0.35 ? 1 : 0; obstacles.push({ x: 16, type: type, h: type === 1 ? 1.6 : 1.2 }); } }
+            obstacles.forEach((obs, idx) => {
+                obs.x -= 0.35; if (obs.x < -1) obstacles.splice(idx, 1);
+                if (obs.x >= 1.6 && obs.x <= 3.2) { if (obs.type === 0 && dinoY <= obs.h * 1.5) { triggerGameOver(); } if (obs.type === 1 && !dinoIsDucking && dinoY <= 2.2) { triggerGameOver(); } }
+            });
+        }
+        renderFullFrame(); loopTimeout = setTimeout(runGameEngineStep, speed);
+    }
+
+    function generateSnakeFood() { while (true) { food = { x: Math.floor(Math.random() * tileCount), y: Math.floor(Math.random() * 4 + 6) }; if (!snake.some(s => s.x === food.x && s.y === food.y)) break; } }
+
+    function renderFullFrame() {
+        const p = palettes[currentPalette]; const curGame = gameList[activeGameIdx];
+        drawGameBackground(p, curGame);
+
+        if (curGame === "SNAKE") {
+            drawHQBlock(food.x, food.y, '#ff0055', '#bb003b', 8);
+            snake.forEach((s, idx) => { drawHQBlock(s.x, s.y, p.objectGlow, idx === 0 ? '#ffffff' : p.objectFill); });
+        } 
+        else if (curGame === "INVADERS") {
+            ctx.fillStyle = p.objectGlow; ctx.fillRect(playerX * cellSide, 14 * cellSide + 10, 50, 10);
+            bullets.forEach(b => drawHQBlock(b.x, Math.floor(b.y), '#ff0055', '#ff2a6d', 2));
+            invaders.forEach(inv => { if (inv.alive) drawHQBlock(inv.x, inv.y, p.objectGlow, p.objectFill, 6); });
+        } 
+        else if (curGame === "TETRIS") {
+            for (let r = 0; r < 16; r++) { for (let c = 0; c < 16; c++) { if (tetrisGrid[r][c]) drawHQBlock(c, r, p.objectGlow, p.objectFill); } }
+            if (currentPiece) { for (let r = 0; r < currentPiece.length; r++) { for (let c = 0; c < currentPiece[r].length; c++) { if (currentPiece[r][c]) drawHQBlock(currentPieceX + c, currentPieceY + r, '#ffffff', p.objectGlow); } } }
+        }
+        else if (curGame === "BRICKS") {
+            ctx.fillStyle = p.objectGlow; ctx.fillRect(paddleX * cellSide, 14 * cellSide + 10, paddleWidth * cellSide, 8);
+            drawHQBlock(Math.floor(ball.x), Math.floor(ball.y), '#ffffff', '#ffffff', 12);
+            bricks.forEach(b => { if (b.intact) drawHQBlock(b.x, b.y, p.objectGlow, p.objectFill, 2); });
+        }
+        else if (curGame === "DINO") {
+            ctx.strokeStyle = p.objectGlow; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, 13 * cellSide); ctx.lineTo(canvas.width, 13 * cellSide); ctx.stroke();
+            let dYReal = 11.6 - (dinoY * 0.9); drawPixelDino(2, dYReal, '#ffffff', dinoIsDucking, dinoTicks);
+            obstacles.forEach(obs => { 
+                if (obs.type === 0) { 
+                    ctx.fillStyle = p.objectGlow; ctx.fillRect(obs.x * cellSide + 4, 11.2 * cellSide, 10, 45); ctx.fillRect(obs.x * cellSide - 2, 11.8 * cellSide, 6, 8); ctx.fillRect(obs.x * cellSide + 14, 12.1 * cellSide, 6, 8); 
+                } else { 
+                    drawHQBlock(obs.x, 10.5, '#ff0055', '#bb003b', 4); ctx.fillStyle = '#ff0055'; ctx.fillRect(obs.x * cellSide - 6, (10.6 + Math.sin(dinoTicks * 0.6) * 0.3) * cellSide, 10, 5);
+                } 
+            });
+        }
+
+        if (isPaused) { ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = p.text; ctx.font = '900 24px "Courier New", monospace'; ctx.textAlign = 'center'; ctx.fillText('PAUSE', canvas.width / 2, canvas.height / 2); }
+    }
+
+    function handleButtonA() {
+        if (!gameRunning || isPaused) return; const curGame = gameList[activeGameIdx];
+        if (curGame === "INVADERS") { if (bullets.length < 3) { bullets.push({ x: playerX + 1, y: 13 }); playSound('shoot'); } }
+        else if (curGame === "TETRIS") { let rotated = currentPiece[0].map((val, index) => currentPiece.map(row => row[index]).reverse()); if (!checkTetrisCollision(rotated, currentPieceX, currentPieceY)) { currentPiece = rotated; playSound('move'); } }
+        else if (curGame === "BRICKS") { if(paddleWidth === 4) { paddleWidth = 6; playSound('eat'); setTimeout(() => paddleWidth = 4, 4000); } }
+        else if (curGame === "DINO") { if (dinoY === 0) { dinoVelocity = 2.4; playSound('move'); } }
+    }
+    function handleButtonB() {
+        if (!gameRunning || isPaused) return; const curGame = gameList[activeGameIdx];
+        if (curGame === "TETRIS") { while (!checkTetrisCollision(currentPiece, currentPieceX, currentPieceY + 1)) { currentPieceY++; } lockTetrisPiece(); renderFullFrame(); }
+        else if (curGame === "BRICKS") { ball.dx *= 0.8; ball.dy *= 0.8; playSound('move'); }
+    }
+    function handleDirection(key) {
+        if (!gameRunning || isPaused) return; const curGame = gameList[activeGameIdx];
+        if (curGame === "SNAKE") { if (key === 'up' && dy !== 1) { nextDx = 0; nextDy = -1; } else if (key === 'down' && dy !== -1) { nextDx = 0; nextDy = 1; } else if (key === 'left' && dx !== 1) { nextDx = -1; nextDy = 0; } else if (key === 'right' && dx !== -1) { nextDx = 1; nextDy = 0; } } 
+        else if (curGame === "INVADERS") { if (key === 'left' && playerX > 0) playerX--; if (key === 'right' && playerX < 14) playerX++; } 
+        else if (curGame === "TETRIS") { if (key === 'left' && !checkTetrisCollision(currentPiece, currentPieceX - 1, currentPieceY)) { currentPieceX--; playSound('move'); } if (key === 'right' && !checkTetrisCollision(currentPiece, currentPieceX + 1, currentPieceY)) { currentPieceX++; playSound('move'); } if (key === 'down' && !checkTetrisCollision(currentPiece, currentPieceX, currentPieceY + 1)) { currentPieceY++; playSound('move'); } }
+        else if (curGame === "BRICKS") { if (key === 'right') paddleX = Math.min(16 - paddleWidth, paddleX + 1.5); if (key === 'left') paddleX = Math.max(0, paddleX - 1.5); }
+        else if (curGame === "DINO") { if (key === 'up' && dinoY === 0) { dinoVelocity = 2.4; playSound('move'); } if (key === 'down') { dinoIsDucking = true; setTimeout(() => dinoIsDucking = false, 700); } }
+    }
+
+    function togglePause() { if (!gameRunning && !isPaused) return; initAudio(); if (!isPaused) { isPaused = true; gameRunning = false; if (loopTimeout) clearTimeout(loopTimeout); stopMusic(); playSound('pause'); renderFullFrame(); } else { isPaused = false; gameRunning = true; startMusic(); runGameEngineStep(); } }
+    
+    function triggerGameOver() {
+        gameRunning = false; isPaused = false; stopMusic(); playSound('dead'); if (loopTimeout) clearTimeout(loopTimeout);
+        
+        // Sauvegarde Furtive combinée Cloud-URL + Local
+        let currentBest = globalHighScores[gameList[activeGameIdx]];
+        if (score > currentBest) {
+            globalHighScores[gameList[activeGameIdx]] = score;
+            localStorage.setItem('nexus_v2_best_' + gameList[activeGameIdx], score);
+        }
+
+        ctx.fillStyle = 'rgba(5, 6, 8, 0.9)'; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = '#ff2a6d'; ctx.font = '900 24px "Courier New", monospace'; ctx.textAlign = 'center'; ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2); startBtn.textContent = 'START';
+    }
+    function startGameProcess() { initAudio(); if (introInterval) clearInterval(introInterval); if (loopTimeout) clearTimeout(loopTimeout); setupSelectedGame(); isPaused = false; gameRunning = true; startMusic(); runGameEngineStep(); }
+
+    // ---------- Event Keyboard Mappings ----------
+    document.addEventListener('keydown', (e) => {
+        const k = e.key.toLowerCase();
+        if (e.key === 'ArrowUp' || k === 'z') { e.preventDefault(); handleDirection('up'); }
+        else if (e.key === 'ArrowDown' || k === 's') { e.preventDefault(); handleDirection('down'); }
+        else if (e.key === 'ArrowLeft' || k === 'q') { e.preventDefault(); handleDirection('left'); }
+        else if (e.key === 'ArrowRight' || k === 'd') { e.preventDefault(); handleDirection('right'); }
+        else if (e.key === ' ' || k === 'k') { e.preventDefault(); handleButtonA(); } 
+        else if (e.key === 'Shift' || k === 'l') { e.preventDefault(); handleButtonB(); } 
+        else if (e.key === 'Enter') { e.preventDefault(); startGameProcess(); } 
+        else if (e.key === 'Escape') { e.preventDefault(); togglePause(); } 
+        else if (k === 'm') { e.preventDefault(); switchTrack(); } 
+        else if (k === 'c') { e.preventDefault(); switchPalette(); } 
+        else if (k === 'g') { e.preventDefault(); switchGame(); } 
+    });
+
+    const bindControl = (id, action) => { const btn = document.getElementById(id); btn.addEventListener('touchstart', (e) => { e.preventDefault(); action(); }, { passive: false }); btn.addEventListener('mousedown', (e) => { action(); }); };
+    bindControl('up', () => handleDirection('up')); bindControl('down', () => handleDirection('down')); bindControl('left', () => handleDirection('left')); bindControl('right', () => handleDirection('right'));
+    bindControl('btnA', () => handleButtonA()); bindControl('btnB', () => handleButtonB());
+    bindControl('btnSelect', () => togglePause()); bindControl('btnStart', () => startGameProcess());
+    bindControl('btnMusic', () => switchTrack()); bindControl('btnColor', () => switchPalette());
+    bindControl('btnGame', () => switchGame());
+    
+    // Événement du bouton de génération de lien de partage
+    document.getElementById('btnShare').addEventListener('click', generateShareLink);
+
+    // Initialisation
+    loadScoresFromURL();
+    initIntroAnimation();
+</script>
+</body>
+</html>
